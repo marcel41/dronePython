@@ -1,0 +1,117 @@
+#!/usr/bin/python3
+import sys,tty,termios
+class _Getch:
+    def __call__(self):
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(sys.stdin.fileno())
+                ch = sys.stdin.read(3)
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            return ch
+
+def get():
+        inkey = _Getch()
+        while(1):
+                k=inkey()
+                if k!='':break
+        if k=='\x1b[A':
+                print ("up")
+        elif k=='\x1b[B':
+                print ("down")
+        elif k=='\x1b[C':
+                print ("right")
+        elif k=='\x1b[D':
+                print ("left")
+        else:
+                print ("not an arrow key!")
+
+from pyparrot.Bebop import Bebop
+import math
+
+try:
+    # for Python2
+    from Tkinter import *   ## notice capitalized T in Tkinter
+except ImportError:
+    # for Python3
+    from tkinter import *   ## notice lowercase 't' in tkinter here
+fields = 'Roll', 'Pitch', 'Yaw', 'Duration'
+bebop = Bebop(drone_type='Bebop2')
+success = bebop.connect(10)
+print(success)
+if(success):
+    print("turning on the video")
+    bebop.start_video_stream()
+
+    print("sleeping")
+    bebop.smart_sleep(2)
+
+    bebop.ask_for_state_update()
+
+    bebop.safe_takeoff(10)
+
+    # set safe indoor parameters
+    bebop.set_max_tilt(5)
+    bebop.set_max_vertical_speed(1)
+    bebop.set_max_altitude(2)
+
+
+def fetch(entries):
+   values = [];
+   for entry in entries:
+      field = entry[0]
+      text  = entry[1].get()
+      number  = int(float(text))
+      values.append(number)
+      print('%s: "%d"' % (field, number))
+
+   # trying out the new hull protector parameters - set to 1 for a hull protection and 0 without protection
+   #bebop.set_hull_protection(1)
+
+   print("Flying direct: Slow move for indoors")
+   bebop.fly_direct(roll=values[0], pitch=values[1], yaw=values[2], vertical_movement=0, duration=values[3])
+
+
+
+
+def landing():
+  print ("click")
+  bebop.smart_sleep(5)
+
+  bebop.safe_land(10)
+
+def disconnect():
+    print("DONE - disconnecting")
+    bebop.stop_video_stream()
+    bebop.smart_sleep(5)
+    print(bebop.sensors.battery)
+    bebop.disconnect()
+
+def makeform(root, fields):
+   entries = []
+   for field in fields:
+      row = Frame(root)
+      lab = Label(row, width=15, text=field, anchor='w')
+      ent = Entry(row)
+      row.pack(side=TOP, fill=X, padx=5, pady=5)
+      lab.pack(side=LEFT)
+      ent.pack(side=RIGHT, expand=YES, fill=X)
+      entries.append((field, ent))
+   return entries
+
+if __name__ == '__main__':
+   root = Tk()
+   print ('k');
+   ents = makeform(root, fields)
+   root.bind('<Return>', (lambda event, e=ents: fetch(e)))
+   b1 = Button(root, text='Send',
+          command=(lambda e=ents: fetch(e)))
+   b1.pack(side=LEFT, padx=5, pady=5)
+   b2 = Button(root, text='Quit', command=root.quit)
+   b2.pack(side=LEFT, padx=5, pady=5)
+   b3 = Button(root, text='Land', command=landing)
+   b3.pack(side=LEFT, padx=5, pady=5)
+   b4 = Button(root, text='disconnect', command=disconnect)
+   b4.pack(side=LEFT, padx=5, pady=5)
+   root.mainloop()
